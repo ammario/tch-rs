@@ -410,3 +410,72 @@ fn seq() {
     assert_eq!(vec_f32_from(&xs), [1., 0., 2.]);
     assert_eq!(vec_f32_from(&ys), [1., 0., 2.]);
 }
+
+#[test]
+fn adam_optimizer_device_test() {
+    // Test moving Adam optimizer state to different devices
+    tch::manual_seed(42);
+
+    // Create some data on CPU
+    let xs = Tensor::from_slice(&(1..15).collect::<Vec<_>>()).to_kind(Kind::Float).view([-1, 1]);
+    let ys = &xs * 0.42 + 1.337;
+
+    // Create model and optimizer on CPU
+    let vs = nn::VarStore::new(Device::Cpu);
+    let mut opt = nn::adam(0.9, 0.999, 0.01).build(&vs, 0.1).unwrap();
+    let linear = nn::linear(vs.root(), 1, 1, Default::default());
+
+    // Train for a few steps to create Adam state (momentum and second moment estimates)
+    for _ in 0..5 {
+        let loss = xs.apply(&linear).mse_loss(&ys, Reduction::Mean);
+        opt.backward_step(&loss);
+    }
+
+    // Save the state before device transfer
+    let temp_path = std::env::temp_dir().join("adam_test_state.pt");
+    opt.save(&temp_path).unwrap();
+
+    // Now test moving the optimizer state to CPU (should be a no-op but shouldn't fail)
+    opt.to_device(Device::Cpu).unwrap();
+
+    // Continue training - this should work without errors
+    for _ in 0..5 {
+        let loss = xs.apply(&linear).mse_loss(&ys, Reduction::Mean);
+        opt.backward_step(&loss);
+    }
+
+    // Load the saved state back
+    opt.load(&temp_path).unwrap();
+
+    // Clean up temp file
+    std::fs::remove_file(&temp_path).ok();
+
+    // If CUDA is available, test moving to GPU
+    if tch::utils::has_cuda() {
+        // Move model variables to CUDA
+        vs.set_device(Device::Cuda(0));
+
+        // Move optimizer state to CUDA
+        opt.to_device(Device::Cuda(0)).unwrap();
+
+        // Move data to CUDA
+        let xs_cuda = xs.to_device(Device::Cuda(0));
+        let ys_cuda = ys.to_device(Device::Cuda(0));
+
+        // Continue training on CUDA
+        for _ in 0..5 {
+            let loss = xs_cuda.apply(&linear).mse_loss(&ys_cuda, Reduction::Mean);
+            opt.backward_step(&loss);
+        }
+
+        // Move back to CPU
+        vs.set_device(Device::Cpu);
+        opt.to_device(Device::Cpu).unwrap();
+
+        // Continue training on CPU
+        for _ in 0..5 {
+            let loss = xs.apply(&linear).mse_loss(&ys, Reduction::Mean);
+            opt.backward_step(&loss);
+        }
+    }
+}

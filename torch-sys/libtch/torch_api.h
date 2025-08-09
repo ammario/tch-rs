@@ -149,6 +149,7 @@ void ato_step(optimizer);
 void ato_free(optimizer);
 void ato_save(optimizer, char *filename);
 void ato_load(optimizer, char *filename);
+void ato_to_device(optimizer, int device_index);
 
 scalar ats_int(int64_t);
 scalar ats_float(double);

@@ -133,6 +133,15 @@ impl COptimizer {
         unsafe_torch_err!(torch_sys::ato_save(self.c_optimizer, path.as_ptr()));
         Ok(())
     }
+
+    pub fn to_device(&mut self, device: crate::Device) -> Result<(), TchError> {
+        let device_index = match device {
+            crate::Device::Cpu => -1,
+            crate::Device::Cuda(idx) => idx as i32,
+        };
+        unsafe_torch_err!(torch_sys::ato_to_device(self.c_optimizer, device_index));
+        Ok(())
+    }
 }
 
 impl Drop for COptimizer {

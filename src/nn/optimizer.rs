@@ -331,4 +331,11 @@ impl Optimizer {
     pub fn set_weight_decay_group(&mut self, group: usize, weight_decay: f64) {
         self.opt.set_weight_decay_group(group, weight_decay).unwrap()
     }
+
+    /// Moves all optimizer state tensors to the specified device.
+    /// This is useful when you want to move the Adam momentum buffers and
+    /// second moment estimates to a different device (e.g., from CPU to GPU).
+    pub fn to_device(&mut self, device: crate::Device) -> Result<(), TchError> {
+        self.opt.to_device(device)
+    }
 }

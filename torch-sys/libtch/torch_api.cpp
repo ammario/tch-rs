@@ -927,6 +927,31 @@ void ato_save(optimizer t, char *filename) {
   PROTECT(torch::save(*t, filename);)
 }
 
+void ato_to_device(optimizer t, int device_index) {
+  PROTECT(
+    torch::Device device(device_index >= 0 ? torch::kCUDA : torch::kCPU, 
+                         device_index >= 0 ? device_index : 0);
+    
+    // Move all parameter groups' state to the specified device
+    for (auto& group : t->param_groups()) {
+      auto& params = group.params();
+      for (size_t i = 0; i < params.size(); ++i) {
+        auto* param_state = t->state().find(params[i].unsafeGetTensorImpl());
+        if (param_state != t->state().end()) {
+          auto& state_dict = param_state->second;
+          // Move each state tensor to the device
+          for (auto& item : state_dict) {
+            if (item.value().isTensor()) {
+              auto tensor = item.value().toTensor();
+              item.value() = tensor.to(device);
+            }
+          }
+        }
+      }
+    }
+  )
+}
+
 scalar ats_int(int64_t v) {
   PROTECT(return new torch::Scalar(v);)
   return nullptr;

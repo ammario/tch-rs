@@ -215,6 +215,7 @@ extern "C" {
     pub fn ato_free(arg: *mut C_optimizer);
     pub fn ato_load(arg: *mut C_optimizer, filename: *const c_char);
     pub fn ato_save(arg: *mut C_optimizer, filename: *const c_char);
+    pub fn ato_to_device(arg: *mut C_optimizer, device_index: c_int);
     pub fn at_save_image(arg: *mut C_tensor, filename: *const c_char) -> c_int;
     pub fn at_load_image(filename: *const c_char) -> *mut C_tensor;
     pub fn at_load_image_from_memory(
